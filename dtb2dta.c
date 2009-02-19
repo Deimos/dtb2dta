@@ -11,6 +11,7 @@ char get_open_bracket(int);
 char get_close_bracket(int);
 
 void parse_string_val(FILE*, FILE*);
+char* escape_string(char*);
 void parse_int_val(FILE*, FILE*);
 void parse_float_val(FILE*, FILE*);
 void parse_directive(FILE*, FILE*, char*, int);
@@ -210,46 +211,61 @@ void parse_string_val(FILE* dtb_file, FILE* out_file)
     int length;
     char* string_val;
 
-    int i, j;
-    int num_quotes = 0;
-    char* escaped_string;
-
     fread(&length, sizeof(int), 1, dtb_file); // get the string length
     string_val = (char *)malloc(sizeof(char) * (length+1));
     fread(string_val, sizeof(char), length, dtb_file);
     string_val[length] = 0x00; // add null char at the end of the string
 
-    // check for double-quotes in the string (need to be replaced with "\q")
-    for (i = 0; i < length; i++)
-    {
-        if (string_val[i] == '"')
-        {
-            num_quotes++;
-        }
-    }
-    if (num_quotes > 0)
-    {
-        escaped_string = (char *)malloc(sizeof(char) * (length + num_quotes + 1));
-        j = 0;
-        for (i = 0; i <= length; i++)
-        {
-            if (string_val[i] == '"')
-            {
-                escaped_string[j++] = '\\';
-                escaped_string[j++] = 'q';
-            }
-            else
-            {
-                escaped_string[j++] = string_val[i];
-            }
-        }
-        free(string_val);
-        string_val = escaped_string;
-    }
+    string_val = escape_string(string_val);
 
     fprintf(out_file, "%s", string_val);
 
     free(string_val);
+}
+
+char* escape_string(char* in_string)
+{
+    char* escaped_string;
+    int num_escape_chars = 0;
+    int i, j;
+
+    // check for double-quotes or newlines in the string (need to be replaced with \q or \n respectively)
+    for (i = 0; i < strlen(in_string); i++)
+    {
+        if (in_string[i] == '"' || in_string[i] == '\n')
+        {
+            num_escape_chars++;
+        }
+    }
+
+    if (num_escape_chars > 0)
+    {
+        escaped_string = (char *)malloc(sizeof(char) * (strlen(in_string) + num_escape_chars + 1));
+        j = 0;
+        for (i = 0; i <= strlen(in_string); i++)
+        {
+            if (in_string[i] == '"')
+            {
+                escaped_string[j++] = '\\';
+                escaped_string[j++] = 'q';
+            }
+            else if (in_string[i] == '\n')
+            {
+                escaped_string[j++] = '\\';
+                escaped_string[j++] = 'n';
+            }
+            else
+            {
+                escaped_string[j++] = in_string[i];
+            }
+        }
+        free(in_string);
+        return escaped_string;
+    }
+    else
+    {
+        return in_string;
+    }
 }
 
 void parse_int_val(FILE* dtb_file, FILE* out_file)
